@@ -29,7 +29,7 @@ def get_campaign_name(campaign_id):
         print("Error: El token de la API de Meta no está configurado.")
         return "Token no configurado"
 
-    url = f"https://graph.facebook.com/v20.0/{campaign_id}"
+    url = f"https://graph.facebook.com/v23.0/{campaign_id}"
     params = {'fields': 'name', 'access_token': access_token}
     
     try:
