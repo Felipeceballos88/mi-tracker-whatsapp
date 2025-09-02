@@ -57,7 +57,7 @@ def save_to_google_sheet(data_row):
     except Exception as e:
         print(f"Error al escribir en Google Sheets: {e}")
 
-# --- RUTA PRINCIPAL DEL WEBHOOK ---
+# --- RUTA PRINCIPAL DEL WEBHOOK (VERSIÓN MEJORADA) ---
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     # Verificación inicial del Webhook con Meta
@@ -80,25 +80,40 @@ def webhook():
             if not changes: return 'OK', 200
 
             value = changes[0].get('value', {})
-            if value.get('messaging_product') == 'whatsapp' and 'messages' in value:
-                message = value['messages'][0]
-                if 'referral' in message:
-                    referral = message['referral']
-                    # El source_id suele ser el ID del anuncio o de la campaña
-                    source_id = referral.get('source_id')
-                    
-                    if source_id:
-                        campaign_name = get_campaign_name(source_id)
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        
-                        new_lead_data = [
-                            timestamp,
-                            campaign_name,
-                            source_id,
-                            referral.get('ad_id', 'N/A')
-                        ]
-                        
-                        save_to_google_sheet(new_lead_data)
+            if value.get('messaging_product') == 'whatsapp':
+
+                # --- NUEVA SECCIÓN PARA CAPTURAR DATOS DEL CONTACTO ---
+                contact_info = value.get('contacts', [{}])[0]
+                contact_name = contact_info.get('profile', {}).get('name', 'Nombre no disponible')
+                contact_wa_id = contact_info.get('wa_id', 'ID no disponible')
+                # --- FIN DE LA NUEVA SECCIÓN ---
+
+                if 'messages' in value:
+                    message = value['messages'][0]
+                    if 'referral' in message:
+                        referral = message['referral']
+                        source_id = referral.get('source_id')
+
+                        if source_id:
+                            campaign_name = get_campaign_name(source_id)
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                            # Lista de datos actualizada para incluir nombre y ID
+                            new_lead_data = [
+                                timestamp,
+                                campaign_name,
+                                source_id,
+                                referral.get('ad_id', 'N/A'),
+                                contact_name,      # Nuevo dato
+                                contact_wa_id      # Nuevo dato
+                            ]
+
+                            # Aplicamos el filtro de prefijo de campaña
+                            campaign_prefix = os.environ.get('CAMPAIGN_PREFIX', None)
+                            if not campaign_prefix or campaign_name.startswith(campaign_prefix):
+                                save_to_google_sheet(new_lead_data)
+                            else:
+                                print(f"Campaña '{campaign_name}' ignorada por no coincidir con el prefijo.")
         except (IndexError, KeyError) as e:
             print(f"Error procesando el payload del webhook: {e}")
 
