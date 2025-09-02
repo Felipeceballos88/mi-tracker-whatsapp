@@ -22,21 +22,26 @@ def get_google_creds():
     scopes = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     return Credentials.from_service_account_info(creds_info, scopes=scopes)
 
-def get_campaign_name(campaign_id):
-    """Obtiene el nombre de una campaña usando su ID a través de la API Graph de Meta."""
+def get_campaign_name(source_id):
+    """Obtiene el nombre de la campaña a partir de un ID de origen (anuncio, adset, etc.)."""
     access_token = os.environ.get('META_GRAPH_API_TOKEN')
     if not access_token:
         print("Error: El token de la API de Meta no está configurado.")
         return "Token no configurado"
 
-    url = f"https://graph.facebook.com/v23.0/{campaign_id}"
-    params = {'fields': 'name', 'access_token': access_token}
-    
+    # Esta es la nueva petición inteligente: pide el nombre de la campaña anidada
+    url = f"https://graph.facebook.com/v23.0/{source_id}"
+    params = {
+        'fields': 'campaign{name}',
+        'access_token': access_token
+    }
+
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
-        return data.get('name', 'Nombre no encontrado')
+        # El resultado ahora está anidado: data['campaign']['name']
+        return data.get('campaign', {}).get('name', 'Nombre de campaña no encontrado')
     except requests.exceptions.RequestException as e:
         print(f"Error al contactar la API Graph de Meta: {e}")
         return "Error al obtener nombre"
